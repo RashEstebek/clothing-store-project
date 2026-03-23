@@ -3,7 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 
 const ClothingModel = () => {
-  const { scene } = useGLTF("/src/assets/gucci_shoes.glb?url");
+  const { scene } = useGLTF("/models/gucci_shoes.glb?url");
 
   return <primitive object={scene} scale={0.8} position={[0, 0.8, 0]} />;
 };
