@@ -20,7 +20,7 @@ import { Fragment, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 const initialFormData = {
-  image: null,
+  image: "",
   title: "",
   description: "",
   category: "",
@@ -44,47 +44,76 @@ function AdminProducts() {
   const dispatch = useDispatch();
   const { toast } = useToast();
 
+  useEffect(() => {
+    dispatch(fetchAllProducts());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (uploadedImageUrl) {
+      setFormData((prev) => ({
+        ...prev,
+        image: uploadedImageUrl,
+      }));
+    }
+  }, [uploadedImageUrl]);
+
+  function resetFormState() {
+    setOpenCreateProductsDialog(false);
+    setCurrentEditedId(null);
+    setFormData(initialFormData);
+    setImageFile(null);
+    setUploadedImageUrl("");
+    setImageLoadingState(false);
+  }
+
   function onSubmit(event) {
     event.preventDefault();
 
-    currentEditedId !== null
-      ? dispatch(
-          editProduct({
-            id: currentEditedId,
-            formData,
-          })
-        ).then((data) => {
-          console.log(data, "edit");
-
-          if (data?.payload?.success) {
-            dispatch(fetchAllProducts());
-            setFormData(initialFormData);
-            setOpenCreateProductsDialog(false);
-            setCurrentEditedId(null);
-          }
-        })
-      : dispatch(
-          addNewProduct({
+    if (currentEditedId !== null) {
+      dispatch(
+        editProduct({
+          id: currentEditedId,
+          formData: {
             ...formData,
-            image: uploadedImageUrl,
-          })
-        ).then((data) => {
-          if (data?.payload?.success) {
-            dispatch(fetchAllProducts());
-            setOpenCreateProductsDialog(false);
-            setImageFile(null);
-            setFormData(initialFormData);
-            toast({
-              title: "Product add successfully",
-            });
-          }
+            image: uploadedImageUrl || formData.image,
+          },
+        })
+      ).then((data) => {
+        if (data?.payload?.success) {
+          dispatch(fetchAllProducts());
+          resetFormState();
+          toast({
+            title: "Product updated successfully",
+          });
+        }
+      });
+
+      return;
+    }
+
+    dispatch(
+      addNewProduct({
+        ...formData,
+        image: uploadedImageUrl || formData.image,
+      })
+    ).then((data) => {
+      if (data?.payload?.success) {
+        dispatch(fetchAllProducts());
+        resetFormState();
+        toast({
+          title: "Product added successfully",
         });
+      }
+    });
   }
 
   function handleDelete(getCurrentProductId) {
     dispatch(deleteProduct(getCurrentProductId)).then((data) => {
       if (data?.payload?.success) {
         dispatch(fetchAllProducts());
+        toast({
+          title: "Product deleted successfully",
+        });
       }
     });
   }
@@ -92,15 +121,8 @@ function AdminProducts() {
   function isFormValid() {
     return Object.keys(formData)
       .filter((currentKey) => currentKey !== "averageReview")
-      .map((key) => formData[key] !== "")
-      .every((item) => item);
+      .every((key) => formData[key] !== "" && formData[key] !== null);
   }
-
-  useEffect(() => {
-    dispatch(fetchAllProducts());
-  }, [dispatch]);
-
-  console.log(formData, "productList");
 
   return (
     <Fragment>
@@ -109,10 +131,12 @@ function AdminProducts() {
           Add New Product
         </Button>
       </div>
+
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
         {productList && productList.length > 0
           ? productList.map((productItem) => (
               <AdminProductTile
+                key={productItem._id}
                 setFormData={setFormData}
                 setOpenCreateProductsDialog={setOpenCreateProductsDialog}
                 setCurrentEditedId={setCurrentEditedId}
@@ -122,12 +146,15 @@ function AdminProducts() {
             ))
           : null}
       </div>
+
       <Sheet
         open={openCreateProductsDialog}
-        onOpenChange={() => {
-          setOpenCreateProductsDialog(false);
-          setCurrentEditedId(null);
-          setFormData(initialFormData);
+        onOpenChange={(open) => {
+          if (!open) {
+            resetFormState();
+          } else {
+            setOpenCreateProductsDialog(true);
+          }
         }}
       >
         <SheetContent side="right" className="overflow-auto">
@@ -136,6 +163,7 @@ function AdminProducts() {
               {currentEditedId !== null ? "Edit Product" : "Add New Product"}
             </SheetTitle>
           </SheetHeader>
+
           <ProductImageUpload
             imageFile={imageFile}
             setImageFile={setImageFile}
@@ -145,6 +173,7 @@ function AdminProducts() {
             imageLoadingState={imageLoadingState}
             isEditMode={currentEditedId !== null}
           />
+
           <div className="py-6">
             <CommonForm
               onSubmit={onSubmit}
@@ -152,7 +181,7 @@ function AdminProducts() {
               setFormData={setFormData}
               buttonText={currentEditedId !== null ? "Edit" : "Add"}
               formControls={addProductFormElements}
-              isBtnDisabled={!isFormValid()}
+              isBtnDisabled={!isFormValid() || imageLoadingState}
             />
           </div>
         </SheetContent>

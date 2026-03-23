@@ -3,24 +3,31 @@ const Product = require("../../models/Product");
 
 const handleImageUpload = async (req, res) => {
   try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded",
+      });
+    }
+
     const b64 = Buffer.from(req.file.buffer).toString("base64");
-    const url = "data:" + req.file.mimetype + ";base64," + b64;
+    const url = `data:${req.file.mimetype};base64,${b64}`;
     const result = await imageUploadUtil(url);
 
-    res.json({
+    res.status(200).json({
       success: true,
       result,
     });
   } catch (error) {
     console.log(error);
-    res.json({
+    res.status(500).json({
       success: false,
       message: "Error occured",
     });
   }
 };
 
-//add a new product
+// add a new product
 const addProduct = async (req, res) => {
   try {
     const {
@@ -35,8 +42,6 @@ const addProduct = async (req, res) => {
       averageReview,
     } = req.body;
 
-    console.log(averageReview, "averageReview");
-
     const newlyCreatedProduct = new Product({
       image,
       title,
@@ -50,6 +55,7 @@ const addProduct = async (req, res) => {
     });
 
     await newlyCreatedProduct.save();
+
     res.status(201).json({
       success: true,
       data: newlyCreatedProduct,
@@ -63,8 +69,7 @@ const addProduct = async (req, res) => {
   }
 };
 
-//fetch all products
-
+// fetch all products
 const fetchAllProducts = async (req, res) => {
   try {
     const listOfProducts = await Product.find({});
@@ -81,7 +86,7 @@ const fetchAllProducts = async (req, res) => {
   }
 };
 
-//edit a product
+// edit a product
 const editProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -98,11 +103,13 @@ const editProduct = async (req, res) => {
     } = req.body;
 
     let findProduct = await Product.findById(id);
-    if (!findProduct)
+
+    if (!findProduct) {
       return res.status(404).json({
         success: false,
         message: "Product not found",
       });
+    }
 
     findProduct.title = title || findProduct.title;
     findProduct.description = description || findProduct.description;
@@ -116,6 +123,7 @@ const editProduct = async (req, res) => {
     findProduct.averageReview = averageReview || findProduct.averageReview;
 
     await findProduct.save();
+
     res.status(200).json({
       success: true,
       data: findProduct,
@@ -129,17 +137,18 @@ const editProduct = async (req, res) => {
   }
 };
 
-//delete a product
+// delete a product
 const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const product = await Product.findByIdAndDelete(id);
 
-    if (!product)
+    if (!product) {
       return res.status(404).json({
         success: false,
         message: "Product not found",
       });
+    }
 
     res.status(200).json({
       success: true,

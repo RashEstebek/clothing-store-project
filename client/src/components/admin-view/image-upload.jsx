@@ -3,7 +3,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useEffect, useRef } from "react";
 import { Button } from "../ui/button";
-import axios from "axios";
+import api from "@/lib/axios";
 import { Skeleton } from "../ui/skeleton";
 
 function ProductImageUpload({
@@ -13,18 +13,13 @@ function ProductImageUpload({
   uploadedImageUrl,
   setUploadedImageUrl,
   setImageLoadingState,
-  isEditMode,
+  isEditMode = false,
   isCustomStyling = false,
 }) {
   const inputRef = useRef(null);
 
-  console.log(isEditMode, "isEditMode");
-
   function handleImageFileChange(event) {
-    console.log(event.target.files, "event.target.files");
     const selectedFile = event.target.files?.[0];
-    console.log(selectedFile);
-
     if (selectedFile) setImageFile(selectedFile);
   }
 
@@ -40,36 +35,56 @@ function ProductImageUpload({
 
   function handleRemoveImage() {
     setImageFile(null);
+    setUploadedImageUrl("");
     if (inputRef.current) {
       inputRef.current.value = "";
     }
   }
 
   async function uploadImageToCloudinary() {
-    setImageLoadingState(true);
-    const data = new FormData();
-    data.append("my_file", imageFile);
-    const response = await axios.post(
-      "http://localhost:5000/api/admin/products/upload-image",
-      data
-    );
-    console.log(response, "response");
+    try {
+      setImageLoadingState(true);
 
-    if (response?.data?.success) {
-      setUploadedImageUrl(response.data.result.url);
+      const data = new FormData();
+      data.append("my_file", imageFile);
+
+      const response = await api.post("/api/admin/products/upload-image", data);
+
+      console.log("UPLOAD RESPONSE:", response.data);
+
+      const imageUrl =
+        response?.data?.result?.secure_url ||
+        response?.data?.result?.url ||
+        "";
+
+      console.log("FINAL IMAGE URL:", imageUrl);
+
+      if (response?.data?.success && imageUrl) {
+        setUploadedImageUrl(imageUrl);
+      } else {
+        console.log("Image URL not found in response");
+        setUploadedImageUrl("");
+      }
+    } catch (error) {
+      console.log("UPLOAD ERROR:", error.response?.data || error.message);
+      setUploadedImageUrl("");
+    } finally {
       setImageLoadingState(false);
     }
   }
 
   useEffect(() => {
-    if (imageFile !== null) uploadImageToCloudinary();
+    if (imageFile) {
+      uploadImageToCloudinary();
+    }
   }, [imageFile]);
 
   return (
     <div
-      className={`w-full  mt-4 ${isCustomStyling ? "" : "max-w-md mx-auto"}`}
+      className={`w-full mt-4 ${isCustomStyling ? "" : "max-w-md mx-auto"}`}
     >
       <Label className="text-lg font-semibold mb-2 block">Upload Image</Label>
+
       <div
         onDragOver={handleDragOver}
         onDrop={handleDrop}
@@ -85,6 +100,7 @@ function ProductImageUpload({
           onChange={handleImageFileChange}
           disabled={isEditMode}
         />
+
         {!imageFile ? (
           <Label
             htmlFor="image-upload"
@@ -98,12 +114,27 @@ function ProductImageUpload({
         ) : imageLoadingState ? (
           <Skeleton className="h-10 bg-gray-100" />
         ) : (
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center">
               <FileIcon className="w-8 text-primary mr-2 h-8" />
             </div>
-            <p className="text-sm font-medium">{imageFile.name}</p>
+
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{imageFile.name}</p>
+              {uploadedImageUrl ? (
+                <a
+                  href={uploadedImageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-blue-500 underline break-all"
+                >
+                  Uploaded image preview
+                </a>
+              ) : null}
+            </div>
+
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               className="text-muted-foreground hover:text-foreground"
